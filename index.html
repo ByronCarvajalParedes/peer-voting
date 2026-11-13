@@ -326,8 +326,8 @@
 
       <div class="btn-row" style="margin-top:24px;">
         <button class="btn btn-outline" onclick="closeAdmin()">← Cerrar resultados</button>
-        <button class="btn btn-primary" onclick="exportCSV()">⬇ Exportar CSV</button>
-        <button class="btn" style="background:#dc2626;color:white;" onclick="clearData()">🗑 Resetear datos</button>
+        <button class="btn btn-primary" onclick="renderAdmin()">↻ Actualizar</button>
+        <button class="btn btn-gold" onclick="exportCSV()">⬇ Exportar CSV</button>
       </div>
     </div>
   </div>
@@ -551,41 +551,51 @@ function closeAdmin() {
   document.getElementById("inp-name").value = "";
 }
 
-function renderAdmin() {
-  const all = loadVotes();
+async function renderAdmin() {
+  document.getElementById("votes-count-label").textContent = "Cargando datos desde Google Sheets...";
+  document.getElementById("ranking-cards").innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);">⏳ Cargando...</div>`;
+
+  let allVotes = [];
+  try {
+    const res = await fetch(SHEETS_URL, { method: "GET", mode: "cors" });
+    const json = await res.json();
+    if (json.ok) allVotes = json.votes;
+  } catch (err) {
+    document.getElementById("votes-count-label").textContent = "⚠️ No se pudieron cargar los datos. Comprueba la conexión.";
+    return;
+  }
+
   document.getElementById("votes-count-label").textContent =
-    `Total de votos registrados: ${all.length}`;
+    `Total de votos registrados: ${allVotes.length}`;
 
   // Aggregate per team
-  const agg = {}; // { teamN: { problema: [], solucion: [], diseno: [], narrativa: [] } }
+  const agg = {};
   for (let t = 1; t <= TEAMS; t++) agg[t] = { problema:[], solucion:[], diseno:[], narrativa:[] };
 
-  for (const entry of all) {
-    for (const [tStr, scores] of Object.entries(entry.votes)) {
-      const t = parseInt(tStr);
-      for (const c of CRITERIA) {
-        if (scores[c.key] !== undefined) agg[t][c.key].push(scores[c.key]);
-      }
-    }
+  for (const row of allVotes) {
+    const t = parseInt(row.voted_team);
+    if (!t || t < 1 || t > TEAMS) continue;
+    if (row.problema)  agg[t].problema.push(Number(row.problema));
+    if (row.solucion)  agg[t].solucion.push(Number(row.solucion));
+    if (row.diseno)    agg[t].diseno.push(Number(row.diseno));
+    if (row.narrativa) agg[t].narrativa.push(Number(row.narrativa));
   }
 
   const avg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2) : "—";
 
-  // Build ranking
   const teams = [];
   for (let t = 1; t <= TEAMS; t++) {
-    const vals = CRITERIA.map(c => agg[t][c.key]);
-    const allScores = vals.flat();
-    const total = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length) : null;
+    const allScores = [...agg[t].problema, ...agg[t].solucion, ...agg[t].diseno, ...agg[t].narrativa];
+    const total = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : null;
     teams.push({
       team: t,
       problema: avg(agg[t].problema),
       solucion: avg(agg[t].solucion),
-      diseno: avg(agg[t].diseno),
-      narrativa: avg(agg[t].narrativa),
-      total: total !== null ? total.toFixed(2) : "—",
+      diseno:   avg(agg[t].diseno),
+      narrativa:avg(agg[t].narrativa),
+      total:    total !== null ? total.toFixed(2) : "—",
       totalNum: total,
-      votos: agg[t].problema.length,
+      votos:    agg[t].problema.length,
     });
   }
   teams.sort((a,b) => (b.totalNum || 0) - (a.totalNum || 0));
@@ -618,7 +628,7 @@ function renderAdmin() {
   const tbody = document.getElementById("detail-body");
   tbody.innerHTML = teams.map((t, i) => `
     <tr>
-      <td><span class="rank-badge rank-${Math.min(i+1,4) === i+1 && i<3 ? i+1 : "other"}">${i+1}</span></td>
+      <td><span class="rank-badge rank-${i < 3 ? i+1 : "other"}">${i+1}</span></td>
       <td><strong>Equipo ${t.team}</strong></td>
       <td>${t.problema}</td>
       <td>${t.solucion}</td>
