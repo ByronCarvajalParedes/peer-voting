@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Votación de Equipos — Dashboard Review</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #002A86;
+    --gold: #F0AB00;
+    --light: #f4f6fb;
+    --white: #fff;
+    --border: #dde3f0;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --success: #16a34a;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: var(--light);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--blue);
+    color: white;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header h1 { font-size: 1.3rem; font-weight: 700; }
+  header span { font-size: 0.85rem; opacity: 0.75; margin-top: 2px; display: block; }
+  .logo { width: 36px; height: 36px; background: var(--gold); border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 900; font-size: 1.1rem; color: var(--blue); flex-shrink: 0; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+
+  /* STEP INDICATOR */
+  .steps { display: flex; gap: 8px; margin-bottom: 32px; }
+  .step { flex: 1; height: 4px; background: var(--border); border-radius: 4px; transition: background .3s; }
+  .step.active { background: var(--gold); }
+  .step.done   { background: var(--blue); }
+
+  /* CARDS */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 1.1rem; color: var(--blue); margin-bottom: 6px; }
+  .card p  { font-size: 0.88rem; color: var(--muted); margin-bottom: 20px; }
+
+  /* TEAM / NAME SELECTS */
+  .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .form-row label { font-size: 0.85rem; font-weight: 600; color: var(--blue); }
+  select, input[type=text] {
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    width: 100%;
+    background: white;
+    color: var(--text);
+    transition: border-color .2s;
+  }
+  select:focus, input[type=text]:focus {
+    outline: none; border-color: var(--blue);
+  }
+
+  /* MEMBER VOTE BLOCK */
+  .member-block {
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+    background: #fafbff;
+  }
+  .member-block h3 {
+    font-size: 1rem;
+    color: var(--blue);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .member-block h3 .avatar {
+    width: 32px; height: 32px; background: var(--blue); color: white;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+  }
+
+  .criteria-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .criteria-label { font-size: 0.85rem; color: var(--text); }
+  .criteria-label small { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+
+  /* STAR RATING */
+  .stars { display: flex; gap: 4px; flex-direction: row-reverse; }
+  .stars input { display: none; }
+  .stars label {
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #d1d5db;
+    transition: color .15s;
+  }
+  .stars input:checked ~ label,
+  .stars label:hover,
+  .stars label:hover ~ label { color: var(--gold); }
+
+  /* BTN */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 28px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--blue); color: white; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-gold { background: var(--gold); color: var(--blue); }
+  .btn-gold:hover { opacity: 0.88; }
+  .btn-outline { background: transparent; color: var(--blue); border: 1.5px solid var(--blue); }
+  .btn-full { width: 100%; margin-top: 12px; }
+
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+
+  /* RESULTS */
+  .results-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .results-table th {
+    text-align: left; padding: 10px 12px;
+    background: var(--blue); color: white;
+    font-weight: 600; font-size: 0.8rem;
+  }
+  .results-table th:first-child { border-radius: 8px 0 0 0; }
+  .results-table th:last-child  { border-radius: 0 8px 0 0; }
+  .results-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table tr:hover td { background: #f0f4ff; }
+
+  .rank-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    font-weight: 700; font-size: 0.85rem;
+  }
+  .rank-1 { background: #FFD700; color: #5a4000; }
+  .rank-2 { background: #C0C0C0; color: #3a3a3a; }
+  .rank-3 { background: #CD7F32; color: white; }
+  .rank-other { background: var(--border); color: var(--muted); }
+
+  .score-bar-wrap { width: 80px; background: var(--border); border-radius: 4px; height: 8px; display: inline-block; vertical-align: middle; margin-left: 8px; }
+  .score-bar { height: 8px; border-radius: 4px; background: var(--blue); }
+
+  .team-score-card {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transition: border-color .2s;
+  }
+  .team-score-card.top { border-color: var(--gold); background: #fffdf0; }
+  .team-score-card .team-name { font-weight: 700; font-size: 1rem; color: var(--blue); }
+  .team-score-card .score-big { font-size: 1.6rem; font-weight: 900; color: var(--blue); }
+  .team-score-card .score-big small { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+  .tag-votes { background: #e0e7ff; color: #3730a3; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--success); color: white;
+    padding: 12px 24px; border-radius: 8px;
+    font-weight: 600; font-size: 0.9rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Admin button */
+  #admin-btn {
+    position: fixed; top: 16px; right: 16px;
+    background: rgba(255,255,255,0.15); color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px; border-radius: 6px;
+    font-size: 0.78rem; cursor: pointer;
+    transition: background .2s;
+  }
+  #admin-btn:hover { background: rgba(255,255,255,0.25); }
+
+  @media (max-width: 540px) {
+    main { padding: 20px 12px 60px; }
+    .card { padding: 20px 16px; }
+    .criteria-row { grid-template-columns: 1fr; }
+    .btn-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">★</div>
+  <div>
+    <h1>Dashboard Peer Review</h1>
+    <span>Vota a tus compañeros de clase · Equipos del 1 al 7</span>
+  </div>
+</header>
+<button id="admin-btn" onclick="toggleAdmin()">📊 Ver resultados</button>
+
+<!-- TOAST -->
+<div id="toast">✓ Voto registrado correctamente</div>
+
+<main>
+  <div class="steps" id="steps">
+    <div class="step" id="s1"></div>
+    <div class="step" id="s2"></div>
+    <div class="step" id="s3"></div>
+  </div>
+
+  <!-- VIEW 1: Identificación -->
+  <div class="view active" id="view-identify">
+    <div class="card">
+      <h2>¿Quién eres?</h2>
+      <p>Selecciona tu equipo e introduce tu nombre para comenzar a votar.</p>
+
+      <div class="form-row">
+        <label for="sel-team">Tu equipo</label>
+        <select id="sel-team" onchange="updateNameOptions()">
+          <option value="">— Selecciona tu equipo —</option>
+          <option value="1">Equipo 1</option>
+          <option value="2">Equipo 2</option>
+          <option value="3">Equipo 3</option>
+          <option value="4">Equipo 4</option>
+          <option value="5">Equipo 5</option>
+          <option value="6">Equipo 6</option>
+          <option value="7">Equipo 7</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label for="inp-name">Tu nombre</label>
+        <input type="text" id="inp-name" placeholder="Ej: María García" autocomplete="off">
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="goToVote()">Continuar →</button>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Votación -->
+  <div class="view" id="view-vote">
+    <div class="card" id="vote-header">
+      <h2 id="vote-title">Votando los dashboards</h2>
+      <p id="vote-subtitle">Puntúa cada equipo del 1 (no de acuerdo) al 5 (totalmente de acuerdo)</p>
+    </div>
+    <div id="vote-blocks"></div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="goBack()">← Volver</button>
+      <button class="btn btn-gold" onclick="submitVotes()">Enviar votos ✓</button>
+    </div>
+  </div>
+
+  <!-- VIEW 3: Confirmación -->
+  <div class="view" id="view-done">
+    <div class="card" style="text-align:center; padding: 48px 28px;">
+      <div style="font-size:3rem; margin-bottom:16px;">🎉</div>
+      <h2 style="font-size:1.4rem; margin-bottom:8px;">¡Votos enviados!</h2>
+      <p id="done-msg" style="margin-bottom:0;">Gracias por participar.</p>
+      <button class="btn btn-outline" style="margin-top:24px;" onclick="resetAll()">Votar de nuevo (otro alumno)</button>
+    </div>
+  </div>
+
+  <!-- VIEW ADMIN: Resultados -->
+  <div class="view" id="view-admin">
+    <div class="card">
+      <h2>📊 Resultados en tiempo real</h2>
+      <p id="votes-count-label">Cargando...</p>
+      <div id="ranking-cards"></div>
+
+      <details style="margin-top:24px;">
+        <summary style="cursor:pointer; font-size:0.85rem; color:var(--blue); font-weight:600;">Ver detalle por criterio</summary>
+        <div style="overflow-x:auto; margin-top:12px;">
+          <table class="results-table" id="detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Equipo</th>
+                <th>Problema</th>
+                <th>Solución</th>
+                <th>Diseño</th>
+                <th>Narrativa</th>
+                <th>Media</th>
+                <th>Votos</th>
+              </tr>
+            </thead>
+            <tbody id="detail-body"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <div class="btn-row" style="margin-top:24px;">
+        <button class="btn btn-outline" onclick="closeAdmin()">← Cerrar resultados</button>
+        <button class="btn btn-primary" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <button class="btn" style="background:#dc2626;color:white;" onclick="clearData()">🗑 Resetear datos</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const TEAMS = 7;
+const CRITERIA = [
+  { key: "problema",  label: "Claridad del problema",  desc: "¿Explicaron bien el problema que analiza el dashboard?" },
+  { key: "solucion",  label: "Claridad de la solución", desc: "¿La solución presentada es comprensible y bien argumentada?" },
+  { key: "diseno",    label: "Diseño visual",           desc: "¿El dashboard es visualmente atractivo y claro?" },
+  { key: "narrativa", label: "Fluidez narrativa",       desc: "¿El conjunto cuenta una historia cohesionada?" },
+];
+const STORAGE_KEY = "peer_votes_v1";
+const ADMIN_PASS  = "profesor2024"; // cámbiala si quieres
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let currentUser = { team: null, name: "" };
+let currentVotes = {}; // { teamN: { problema: X, solucion: X, ... } }
+let previousView = null;
+
+// ─── STORAGE ───────────────────────────────────────────────────────────────
+function loadVotes() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveVote(entry) {
+  const all = loadVotes();
+  all.push(entry);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+}
+function clearData() {
+  if (confirm("¿Seguro que quieres borrar TODOS los votos? Esta acción no se puede deshacer.")) {
+    localStorage.removeItem(STORAGE_KEY);
+    renderAdmin();
+    showToast("Datos eliminados");
+  }
+}
+
+// ─── NAVIGATION ────────────────────────────────────────────────────────────
+function showView(id) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  updateSteps(id);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function updateSteps(id) {
+  const map = { "view-identify": 1, "view-vote": 2, "view-done": 3 };
+  const current = map[id] || 0;
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById("s" + i);
+    if (i < current) el.className = "step done";
+    else if (i === current) el.className = "step active";
+    else el.className = "step";
+  }
+  document.getElementById("steps").style.display = id.startsWith("view-admin") ? "none" : "flex";
+}
+function goBack() {
+  currentVotes = {};
+  showView("view-identify");
+}
+function resetAll() {
+  currentUser = { team: null, name: "" };
+  currentVotes = {};
+  document.getElementById("sel-team").value = "";
+  document.getElementById("inp-name").value = "";
+  showView("view-identify");
+}
+
+// ─── STEP 1: IDENTIFY ──────────────────────────────────────────────────────
+function updateNameOptions() { /* reserved for future autocomplete */ }
+
+function goToVote() {
+  const team = document.getElementById("sel-team").value;
+  const name = document.getElementById("inp-name").value.trim();
+  if (!team) return alert("Por favor selecciona tu equipo.");
+  if (!name)  return alert("Por favor introduce tu nombre.");
+
+  currentUser = { team: parseInt(team), name };
+  buildVoteBlocks();
+  document.getElementById("vote-title").textContent = `Hola, ${name} (Equipo ${team})`;
+  document.getElementById("vote-subtitle").textContent =
+    "Puntúa los dashboards de los demás equipos del 1 al 5 en cada criterio.";
+  showView("view-vote");
+}
+
+// ─── STEP 2: VOTE ──────────────────────────────────────────────────────────
+function buildVoteBlocks() {
+  const container = document.getElementById("vote-blocks");
+  container.innerHTML = "";
+  for (let t = 1; t <= TEAMS; t++) {
+    if (t === currentUser.team) continue; // no vote own team
+    container.innerHTML += buildTeamBlock(t);
+  }
+}
+
+function buildTeamBlock(teamNum) {
+  const prefix = `t${teamNum}`;
+  let criteriaHtml = CRITERIA.map(c => `
+    <div class="criteria-row">
+      <div class="criteria-label">
+        ${c.label}
+        <small>${c.desc}</small>
+      </div>
+      <div class="stars">
+        ${[5,4,3,2,1].map(v => `
+          <input type="radio" id="${prefix}_${c.key}_${v}" name="${prefix}_${c.key}" value="${v}">
+          <label for="${prefix}_${c.key}_${v}" title="${v}">★</label>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  const initials = `E${teamNum}`;
+  return `
+    <div class="member-block" id="block-${prefix}">
+      <h3>
+        <div class="avatar">${initials}</div>
+        Equipo ${teamNum}
+      </h3>
+      ${criteriaHtml}
+    </div>
+  `;
+}
+
+function submitVotes() {
+  // Collect & validate
+  const votes = {};
+  for (let t = 1; t <= TEAMS; t++) {
+    if (t === currentUser.team) continue;
+    const prefix = `t${t}`;
+    votes[t] = {};
+    for (const c of CRITERIA) {
+      const sel = document.querySelector(`input[name="${prefix}_${c.key}"]:checked`);
+      if (!sel) {
+        alert(`Falta puntuación en Equipo ${t} — ${c.label}`);
+        document.getElementById(`block-${prefix}`).scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      votes[t][c.key] = parseInt(sel.value);
+    }
+  }
+
+  // Save
+  const entry = {
+    voter_team: currentUser.team,
+    voter_name: currentUser.name,
+    timestamp: new Date().toISOString(),
+    votes // { 1: {problema:X,...}, 3: {...}, ... }
+  };
+  saveVote(entry);
+  showToast("✓ Votos guardados");
+  document.getElementById("done-msg").textContent =
+    `Gracias ${currentUser.name}. Tus votos han sido registrados correctamente.`;
+  showView("view-done");
+}
+
+// ─── ADMIN ─────────────────────────────────────────────────────────────────
+let adminUnlocked = false;
+
+function toggleAdmin() {
+  if (adminUnlocked) {
+    if (document.getElementById("view-admin").classList.contains("active")) {
+      closeAdmin();
+    } else {
+      renderAdmin();
+      showView("view-admin");
+    }
+    return;
+  }
+  const pass = prompt("Contraseña de resultados:");
+  if (pass === ADMIN_PASS) {
+    adminUnlocked = true;
+    renderAdmin();
+    showView("view-admin");
+  } else if (pass !== null) {
+    alert("Contraseña incorrecta.");
+  }
+}
+function closeAdmin() {
+  showView("view-identify");
+  document.getElementById("sel-team").value = "";
+  document.getElementById("inp-name").value = "";
+}
+
+function renderAdmin() {
+  const all = loadVotes();
+  document.getElementById("votes-count-label").textContent =
+    `Total de votos registrados: ${all.length}`;
+
+  // Aggregate per team
+  const agg = {}; // { teamN: { problema: [], solucion: [], diseno: [], narrativa: [] } }
+  for (let t = 1; t <= TEAMS; t++) agg[t] = { problema:[], solucion:[], diseno:[], narrativa:[] };
+
+  for (const entry of all) {
+    for (const [tStr, scores] of Object.entries(entry.votes)) {
+      const t = parseInt(tStr);
+      for (const c of CRITERIA) {
+        if (scores[c.key] !== undefined) agg[t][c.key].push(scores[c.key]);
+      }
+    }
+  }
+
+  const avg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2) : "—";
+
+  // Build ranking
+  const teams = [];
+  for (let t = 1; t <= TEAMS; t++) {
+    const vals = CRITERIA.map(c => agg[t][c.key]);
+    const allScores = vals.flat();
+    const total = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length) : null;
+    teams.push({
+      team: t,
+      problema: avg(agg[t].problema),
+      solucion: avg(agg[t].solucion),
+      diseno: avg(agg[t].diseno),
+      narrativa: avg(agg[t].narrativa),
+      total: total !== null ? total.toFixed(2) : "—",
+      totalNum: total,
+      votos: agg[t].problema.length,
+    });
+  }
+  teams.sort((a,b) => (b.totalNum || 0) - (a.totalNum || 0));
+
+  // Ranking cards
+  const rankCards = document.getElementById("ranking-cards");
+  rankCards.innerHTML = teams.map((t, i) => {
+    const rank = i + 1;
+    const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `${rank}º`;
+    const isTop = rank === 1;
+    const bar = t.totalNum ? `<div class="score-bar-wrap"><div class="score-bar" style="width:${(t.totalNum/5*100).toFixed(0)}%"></div></div>` : "";
+    return `
+      <div class="team-score-card ${isTop ? "top" : ""}">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:1.5rem;">${medal}</span>
+          <div>
+            <div class="team-name">Equipo ${t.team}</div>
+            <span class="tag tag-votes">${t.votos} valoraciones</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="score-big">${t.total}<small>/5</small></div>
+          ${bar}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // Detail table
+  const tbody = document.getElementById("detail-body");
+  tbody.innerHTML = teams.map((t, i) => `
+    <tr>
+      <td><span class="rank-badge rank-${Math.min(i+1,4) === i+1 && i<3 ? i+1 : "other"}">${i+1}</span></td>
+      <td><strong>Equipo ${t.team}</strong></td>
+      <td>${t.problema}</td>
+      <td>${t.solucion}</td>
+      <td>${t.diseno}</td>
+      <td>${t.narrativa}</td>
+      <td><strong>${t.total}</strong></td>
+      <td>${t.votos}</td>
+    </tr>
+  `).join("");
+}
+
+// ─── EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const all = loadVotes();
+  if (!all.length) { alert("No hay votos aún."); return; }
+  let csv = "voter_team,voter_name,timestamp,voted_team,problema,solucion,diseno,narrativa\n";
+  for (const e of all) {
+    for (const [tStr, scores] of Object.entries(e.votes)) {
+      csv += `${e.voter_team},"${e.voter_name}",${e.timestamp},${tStr},${scores.problema},${scores.solucion},${scores.diseno},${scores.narrativa}\n`;
+    }
+  }
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `peer_votes_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ─── TOAST ─────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2800);
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+updateSteps("view-identify");
+document.getElementById("s1").className = "step active";
+</script>
+</body>
+</html>
