@@ -351,6 +351,9 @@ let currentUser = { team: null, name: "" };
 let currentVotes = {}; // { teamN: { problema: X, solucion: X, ... } }
 let previousView = null;
 
+// ─── CONFIG GOOGLE SHEETS ──────────────────────────────────────────────────
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbx-F43ZzjXgxoQwWzptHwKygxaOYLCfoBVIOkycRlwtoyssqKiuF717mbeDLOBsJKnw/exec";
+
 // ─── STORAGE ───────────────────────────────────────────────────────────────
 function loadVotes() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
@@ -366,6 +369,35 @@ function clearData() {
     localStorage.removeItem(STORAGE_KEY);
     renderAdmin();
     showToast("Datos eliminados");
+  }
+}
+
+// ─── ENVÍO A GOOGLE SHEETS ─────────────────────────────────────────────────
+async function sendToSheets(entry) {
+  const rows = Object.entries(entry.votes).map(([voted_team, scores]) => ({
+    voted_team: parseInt(voted_team),
+    problema:   scores.problema,
+    solucion:   scores.solucion,
+    diseno:     scores.diseno,
+    narrativa:  scores.narrativa,
+  }));
+
+  const payload = {
+    timestamp:   entry.timestamp,
+    voter_team:  entry.voter_team,
+    voter_name:  entry.voter_name,
+    rows,
+  };
+
+  try {
+    await fetch(SHEETS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn("No se pudo enviar a Sheets:", err);
   }
 }
 
@@ -473,7 +505,7 @@ function submitVotes() {
     }
   }
 
-  // Save
+  // Save locally + send to Sheets
   const entry = {
     voter_team: currentUser.team,
     voter_name: currentUser.name,
@@ -481,6 +513,10 @@ function submitVotes() {
     votes // { 1: {problema:X,...}, 3: {...}, ... }
   };
   saveVote(entry);
+
+  // Enviar a Google Sheets (no bloqueante)
+  sendToSheets(entry);
+
   showToast("✓ Votos guardados");
   document.getElementById("done-msg").textContent =
     `Gracias ${currentUser.name}. Tus votos han sido registrados correctamente.`;
